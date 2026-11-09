@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PY="$ROOT/.venv/bin/python"
+CFG="$ROOT/.local-configs/config_ewz_h1_small_v4_24_masked.yaml"
+TRAIN_PID="${1:?usage: run_v4_eval.sh <training_pid>}"
+
+while kill -0 "$TRAIN_PID" 2>/dev/null; do
+  sleep 30
+done
+
+echo "v4 training finished; starting calibration + eval"
+
+"$PY" "$ROOT/scripts/tune_calibration.py" \
+  --config "$CFG" --split val --pred-len 24 --stride 24 --samples 16 \
+  --temperatures 0.9,1.0,1.2 --top-ps 0.85,0.9,0.95 \
+  --device cuda:0 --out "$ROOT/results/calibration_v4_24.json"
+
+T24=$("$PY" -c "import json; print(json.load(open('$ROOT/results/calibration_v4_24.json'))['temperature'])")
+P24=$("$PY" -c "import json; print(json.load(open('$ROOT/results/calibration_v4_24.json'))['top_p'])")
+echo "v4 24-bar best T=$T24 top_p=$P24"
+
+"$PY" "$ROOT/scripts/evaluate.py" \
+  --config "$CFG" --split test --pred-len 24 --stride 24 --samples 64 \
+  --temperature "$T24" --top-p "$P24" --calibration "$ROOT/results/calibration_v4_24.json" \
+  --device cuda:0 --out "$ROOT/results/eval_v4_test_24_cal.json"
+
+"$PY" "$ROOT/scripts/evaluate.py" \
+  --config "$CFG" --split test --pred-len 24 --stride 24 --samples 64 \
+  --temperature "$T24" --top-p "$P24" \
+  --device cuda:0 --out "$ROOT/results/eval_v4_test_24_raw.json"
+
+echo "v4 evaluation complete"

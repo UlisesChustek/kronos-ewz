@@ -1,0 +1,14 @@
+.venv/
+.local-configs/
+__pycache__/
+*.pyc
+/data/
+/pretrained/
+/finetuned/
+/logs/
+/results/direct_forward_ledger.json
+/results/direct_forward_ledger.json.lock
+/results/local_v5_pilot/
+.env
+.env.*
+*.lock

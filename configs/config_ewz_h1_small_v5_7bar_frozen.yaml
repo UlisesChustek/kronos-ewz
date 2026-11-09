@@ -1,0 +1,54 @@
+data:
+  data_path: "__PROJECT_ROOT__/data/processed/ewz_h1.csv"
+  lookback_window: 128
+  predict_window: 7
+  max_context: 512
+  clip: 5.0
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+
+training:
+  tokenizer_epochs: 30
+  basemodel_epochs: 8
+  batch_size: 32
+  log_interval: 50
+  num_workers: 6
+  seed: 42
+  tokenizer_learning_rate: 0.0002
+  predictor_learning_rate: 0.000003
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  adam_weight_decay: 0.1
+  accumulation_steps: 1
+  # Explicit: only the seven forecast targets contribute to the loss.
+  loss_mask_predict_only: true
+  early_stopping_patience: 3
+  early_stopping_min_delta: 0.0
+  validation_weighting: tokens
+  freeze_tokenizer: true
+  teacher_forcing: true
+
+model_paths:
+  pretrained_tokenizer: "__PROJECT_ROOT__/pretrained/Kronos-Tokenizer-base"
+  pretrained_predictor: "__PROJECT_ROOT__/pretrained/Kronos-small"
+  exp_name: "ewz_h1_small_v5_7bar_frozen"
+  base_path: "__PROJECT_ROOT__/finetuned"
+  base_save_path: ""
+  # Frozen ORIGINAL pretrained tokenizer, not the EWZ-finetuned v2 tokenizer.
+  finetuned_tokenizer: "__PROJECT_ROOT__/pretrained/Kronos-Tokenizer-base"
+  tokenizer_save_name: "tokenizer"
+  basemodel_save_name: "basemodel"
+
+experiment:
+  name: "kronos_ewz_h1_v5_7bar_frozen"
+  description: "EWZ hourly v5 pilot: 128-bar lookback, 7-bar forecast, frozen pretrained tokenizer, masked loss, GPU1"
+  use_comet: false
+  train_tokenizer: false
+  train_basemodel: true
+  skip_existing: false
+  overwrite_existing: false
+
+device:
+  use_cuda: true
+  device_id: 1

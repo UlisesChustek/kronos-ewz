@@ -1,0 +1,82 @@
+{
+  "scope": "Retrospective single split; already inspected during design. No fresh confirmation.",
+  "sampling_note": "New runs fixed T=1 top_p=.9 seed42 samples64; legacy settings differ.",
+  "training_note": "Multiple recipe changes jointly; causal attribution requires separate ablations.",
+  "n_test_windows": 244,
+  "horizon_bars": 7,
+  "train_prior_up": 0.5128299660816988,
+  "always_up_accuracy": 0.48360655737704916,
+  "always_down_accuracy": 0.5163934426229508,
+  "confidence_method": "Circular moving-block bootstrap, block=6, draws=5000; window uncertainty only, conditional on these runs.",
+  "unchanged": {
+    "path_mae": 0.008211661397011164,
+    "terminal_mae": 0.013749031289395964,
+    "brier_training_prior": 0.2505852626552871
+  },
+  "models": {
+    "v5_frozen_128_7": {
+      "source": "results/eval_v5_test_7bar_raw.windows.csv",
+      "path_mae": 0.008733577300050355,
+      "path_mae_ratio_vs_unchanged": 1.06355789380565,
+      "path_mae_delta_vs_unchanged_ci95": [
+        0.00023268848662321958,
+        0.0008392765060125989
+      ],
+      "terminal_mae": 0.01417084432792043,
+      "terminal_mae_delta_vs_unchanged_ci95": [
+        -0.00014733694923438402,
+        0.0009870659180191514
+      ],
+      "direction_accuracy": 0.5163934426229508,
+      "auc_raw_p_up": 0.5320823244552058,
+      "brier_raw": 0.27019563268442626,
+      "brier_skill_vs_training_prior": -0.07825827353668369,
+      "raw_pointwise_90_coverage": 0.7113583138173302
+    },
+    "v3_legacy_512_7": {
+      "source": "results/eval_v3_test_7_cal.windows.csv",
+      "path_mae": 0.009554417659762705,
+      "path_mae_ratio_vs_unchanged": 1.16351822095834,
+      "path_mae_delta_vs_unchanged_ci95": [
+        0.0008221698857729153,
+        0.0019692828198899287
+      ],
+      "terminal_mae": 0.015139626928447312,
+      "terminal_mae_delta_vs_unchanged_ci95": [
+        0.0004027084459643586,
+        0.002409785937302485
+      ],
+      "direction_accuracy": 0.5122950819672131,
+      "auc_raw_p_up": 0.5136198547215496,
+      "brier_raw": 0.27742079437756145,
+      "brier_skill_vs_training_prior": -0.1070914204527269,
+      "raw_pointwise_90_coverage": 0.7792740046838408
+    },
+    "pretrained_small_128_7": {
+      "source": "results/eval_v5_reference_zeroshot_test_7bar_raw.windows.csv",
+      "path_mae": 0.008928324772234214,
+      "path_mae_ratio_vs_unchanged": 1.087273858549976,
+      "path_mae_delta_vs_unchanged_ci95": [
+        0.0003281241912804482,
+        0.0011796049438594922
+      ],
+      "terminal_mae": 0.014486760214137322,
+      "terminal_mae_delta_vs_unchanged_ci95": [
+        0.00010080588292770992,
+        0.0013985778820760429
+      ],
+      "direction_accuracy": 0.5,
+      "auc_raw_p_up": 0.5166801183750336,
+      "brier_raw": 0.27904472976434425,
+      "brier_skill_vs_training_prior": -0.11357199065695611,
+      "raw_pointwise_90_coverage": 0.740632318501171
+    }
+  },
+  "v5_vs_v3": {
+    "relative_path_mae_reduction": 0.08591212870766807,
+    "paired_path_mae_delta_ci95": [
+      -0.0014020762806769777,
+      -0.00030352440763423296
+    ]
+  }
+}

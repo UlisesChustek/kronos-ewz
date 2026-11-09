@@ -1,0 +1,716 @@
+{
+  "schema": "kronos-ewz-direct-probe/1",
+  "generated_utc": "2026-11-05T18:53:47.690933+00:00",
+  "scope": "Retrospective direct probe on the existing 80/10/10 split. The test period has already been inspected in earlier project work; this is not fresh out-of-sample confirmation.",
+  "no_tuning_after_test": true,
+  "data": {
+    "path": "./data/processed/ewz_h1.csv",
+    "n_rows": 17120,
+    "first_timestamp": "2017-01-26 14:00:00",
+    "last_timestamp": "2026-10-30 19:00:00"
+  },
+  "models": {
+    "predictor": "./pretrained/Kronos-small",
+    "tokenizer": "./pretrained/Kronos-Tokenizer-base",
+    "predictor_mode": "frozen, eval, inference",
+    "tokenizer_mode": "frozen, eval, inference",
+    "pretrained": true,
+    "downloads": "disabled with local_files_only=True",
+    "device": "cuda:1"
+  },
+  "protocol": {
+    "lookback_bars": 128,
+    "horizon_bars": 7,
+    "stride_bars": 7,
+    "context_normalization": "per-window mean/std over the 128 past bars only, then clip to [-5, 5]",
+    "representation": "tokenizer.encode(half=True) -> model.decode_s1 -> context[:, -1, :] (last hidden vector, d_model dimensions)",
+    "ordinary_features": {
+      "source": "scripts/walk_forward_baselines.py:feature_row",
+      "names": [
+        "ret_1",
+        "ret_6",
+        "ret_24",
+        "ret_72",
+        "ret_168",
+        "vol_24",
+        "vol_72",
+        "vol_168",
+        "vol_ratio",
+        "range",
+        "vol_z",
+        "sma24",
+        "sma168",
+        "rsi14",
+        "skew_72",
+        "kurt_72",
+        "hour_sin",
+        "hour_cos",
+        "dow"
+      ],
+      "warmup_bars": 169,
+      "past_only": true
+    },
+    "standardization": "mean/std fitted on training rows only, reused unchanged; clip to [-8, 8]",
+    "lambda_grid": [
+      1.0,
+      10.0,
+      100.0,
+      1000.0,
+      10000.0,
+      100000.0
+    ],
+    "ridge_selection": "minimum validation terminal MAE",
+    "logistic_selection": "minimum validation log loss",
+    "final_fit": "coefficients fit on training rows only after selecting lambda; validation is not reused for fitting",
+    "test_use": "test labels used once, after all choices were frozen",
+    "bootstrap": {
+      "method": "paired circular moving-block bootstrap over chronological test windows",
+      "n_boot": 5000,
+      "block_length_windows": 6,
+      "seed": 42
+    },
+    "direction_rule": {
+      "ridge_return": "r_hat > 0",
+      "logistic_direction": "p_up > 0.5"
+    },
+    "brier_reference": "training-split up-rate (never the test base rate)"
+  },
+  "splits": {
+    "train": {
+      "n_anchors": 1932,
+      "first_anchor": 169,
+      "last_anchor": 13686,
+      "first_target_start": "2017-03-02 15:00:00",
+      "last_target_end": "2024-11-13 14:00:00",
+      "first_close0_timestamp": "2017-03-02 14:00:00",
+      "nonoverlapping_horizon": 7,
+      "targets_wholly_inside_split": true
+    },
+    "validation": {
+      "n_anchors": 244,
+      "first_anchor": 13696,
+      "last_anchor": 15397,
+      "first_target_start": "2024-11-13 18:00:00",
+      "last_target_end": "2025-11-06 19:00:00",
+      "first_close0_timestamp": "2024-11-13 17:00:00",
+      "nonoverlapping_horizon": 7,
+      "targets_wholly_inside_split": true
+    },
+    "test": {
+      "n_anchors": 244,
+      "first_anchor": 15408,
+      "last_anchor": 17109,
+      "first_target_start": "2025-11-07 17:00:00",
+      "last_target_end": "2026-10-30 15:00:00",
+      "first_close0_timestamp": "2025-11-07 16:00:00",
+      "nonoverlapping_horizon": 7,
+      "targets_wholly_inside_split": true
+    },
+    "boundaries": {
+      "n_rows": 17120,
+      "train_end_exclusive": 13696,
+      "validation_end_exclusive": 15408,
+      "train_ratio": 0.8,
+      "validation_ratio": 0.1,
+      "test_ratio": 0.09999999999999995
+    }
+  },
+  "legacy_test_anchor_check": {
+    "source": "./results/eval_v5_test_7bar_raw.windows.csv",
+    "n_windows": 244,
+    "matches": true,
+    "max_abs_close0_diff": 0.0,
+    "max_abs_r_actual_diff": 9.942133921692076e-17,
+    "test_first_anchor": 15408,
+    "test_last_anchor": 17109
+  },
+  "selection": {
+    "repr_ridge": {
+      "chosen": {
+        "lambda": 100000.0,
+        "validation_mae": 0.011808227128758635
+      },
+      "grid": [
+        {
+          "lambda": 1.0,
+          "validation_mae": 0.01631686346528907
+        },
+        {
+          "lambda": 10.0,
+          "validation_mae": 0.015489229367727567
+        },
+        {
+          "lambda": 100.0,
+          "validation_mae": 0.014036142700369564
+        },
+        {
+          "lambda": 1000.0,
+          "validation_mae": 0.01291234328007852
+        },
+        {
+          "lambda": 10000.0,
+          "validation_mae": 0.011996615561817105
+        },
+        {
+          "lambda": 100000.0,
+          "validation_mae": 0.011808227128758635
+        }
+      ]
+    },
+    "feat_ridge": {
+      "chosen": {
+        "lambda": 100000.0,
+        "validation_mae": 0.011787823669272014
+      },
+      "grid": [
+        {
+          "lambda": 1.0,
+          "validation_mae": 0.011849933750145512
+        },
+        {
+          "lambda": 10.0,
+          "validation_mae": 0.011849838782826985
+        },
+        {
+          "lambda": 100.0,
+          "validation_mae": 0.011846953653482479
+        },
+        {
+          "lambda": 1000.0,
+          "validation_mae": 0.011825116002602103
+        },
+        {
+          "lambda": 10000.0,
+          "validation_mae": 0.011793381271850369
+        },
+        {
+          "lambda": 100000.0,
+          "validation_mae": 0.011787823669272014
+        }
+      ]
+    },
+    "repr_logistic": {
+      "chosen": {
+        "lambda": 100000.0,
+        "validation_logloss": 0.6921492093089135,
+        "validation_brier": 0.24950105048270718,
+        "validation_direction_acc": 0.5327868852459017
+      },
+      "grid": [
+        {
+          "lambda": 1.0,
+          "validation_logloss": 1.073153337866992,
+          "validation_brier": 0.3597115243342701,
+          "validation_direction_acc": 0.4713114754098361
+        },
+        {
+          "lambda": 10.0,
+          "validation_logloss": 0.8943426512612824,
+          "validation_brier": 0.32420525369233727,
+          "validation_direction_acc": 0.4385245901639344
+        },
+        {
+          "lambda": 100.0,
+          "validation_logloss": 0.7594659531856468,
+          "validation_brier": 0.27966449920726827,
+          "validation_direction_acc": 0.48770491803278687
+        },
+        {
+          "lambda": 1000.0,
+          "validation_logloss": 0.7048922820067299,
+          "validation_brier": 0.2558888497896998,
+          "validation_direction_acc": 0.4918032786885246
+        },
+        {
+          "lambda": 10000.0,
+          "validation_logloss": 0.6932780379981405,
+          "validation_brier": 0.25006802716358795,
+          "validation_direction_acc": 0.5204918032786885
+        },
+        {
+          "lambda": 100000.0,
+          "validation_logloss": 0.6921492093089135,
+          "validation_brier": 0.24950105048270718,
+          "validation_direction_acc": 0.5327868852459017
+        }
+      ]
+    },
+    "feat_logistic": {
+      "chosen": {
+        "lambda": 1.0,
+        "validation_logloss": 0.6900109494177807,
+        "validation_brier": 0.2484715392498599,
+        "validation_direction_acc": 0.48770491803278687
+      },
+      "grid": [
+        {
+          "lambda": 1.0,
+          "validation_logloss": 0.6900109494177807,
+          "validation_brier": 0.2484715392498599,
+          "validation_direction_acc": 0.48770491803278687
+        },
+        {
+          "lambda": 10.0,
+          "validation_logloss": 0.6902734370261624,
+          "validation_brier": 0.24859977389604254,
+          "validation_direction_acc": 0.47540983606557374
+        },
+        {
+          "lambda": 100.0,
+          "validation_logloss": 0.6904877169945725,
+          "validation_brier": 0.24868798621351235,
+          "validation_direction_acc": 0.48770491803278687
+        },
+        {
+          "lambda": 1000.0,
+          "validation_logloss": 0.69120755351404,
+          "validation_brier": 0.24903113656371256,
+          "validation_direction_acc": 0.5409836065573771
+        },
+        {
+          "lambda": 10000.0,
+          "validation_logloss": 0.6919676625799241,
+          "validation_brier": 0.24941030764250866,
+          "validation_direction_acc": 0.5368852459016393
+        },
+        {
+          "lambda": 100000.0,
+          "validation_logloss": 0.6921052487012224,
+          "validation_brier": 0.24947907497979274,
+          "validation_direction_acc": 0.5368852459016393
+        }
+      ]
+    }
+  },
+  "test": {
+    "n_windows": 244,
+    "test_base_rate_up": 0.48360655737704916,
+    "train_prior_up": 0.5077639751552795,
+    "zero_return": {
+      "terminal_mae": 0.013749031289396014,
+      "terminal_mae_ci95": [
+        0.011510990211259967,
+        0.01650060214473749
+      ]
+    },
+    "training_prior": {
+      "brier": 0.25031483587267994,
+      "brier_ci95": [
+        0.24929660962280728,
+        0.2513330621225527
+      ]
+    },
+    "models": {
+      "repr_ridge": {
+        "head": "ridge_return",
+        "features": "representation",
+        "terminal_mae": 0.013708562535425557,
+        "terminal_mae_minus_zero": -4.046875397045735e-05,
+        "direction_acc": 0.5163934426229508,
+        "auc": 0.5396152811407049,
+        "terminal_mae_ci95": [
+          0.011501070036282498,
+          0.016417284647540328
+        ],
+        "terminal_mae_minus_zero_ci95": [
+          -0.00013989680048225858,
+          5.7313768785437436e-05
+        ],
+        "direction_acc_ci95": [
+          0.4426229508196721,
+          0.5860655737704918
+        ],
+        "auc_ci95": [
+          0.4616782085067668,
+          0.6155313275576799
+        ]
+      },
+      "feat_ridge": {
+        "head": "ridge_return",
+        "features": "lagged",
+        "terminal_mae": 0.013752597434168325,
+        "terminal_mae_minus_zero": 3.566144772310445e-06,
+        "direction_acc": 0.45901639344262296,
+        "auc": 0.48231100349744416,
+        "terminal_mae_ci95": [
+          0.011522057751338695,
+          0.016506048525848523
+        ],
+        "terminal_mae_minus_zero_ci95": [
+          -7.2917732709316e-06,
+          1.5518967074456146e-05
+        ],
+        "direction_acc_ci95": [
+          0.3975409836065574,
+          0.5204918032786885
+        ],
+        "auc_ci95": [
+          0.4083958136957129,
+          0.5593646267445241
+        ]
+      },
+      "repr_logistic": {
+        "head": "logistic_direction",
+        "features": "representation",
+        "brier": 0.25020371400929525,
+        "brier_minus_prior": -0.00011112186338468888,
+        "brier_skill_vs_prior": 0.0004439283952039075,
+        "direction_acc": 0.47950819672131145,
+        "auc": 0.5101560398170568,
+        "brier_ci95": [
+          0.2487331363815056,
+          0.2515994807659968
+        ],
+        "brier_minus_prior_ci95": [
+          -0.0009015861662178125,
+          0.0006268836881727038
+        ],
+        "brier_skill_vs_prior_ci95": [
+          -0.0025030918195540265,
+          0.0036067406592890177
+        ],
+        "direction_acc_ci95": [
+          0.4139344262295082,
+          0.5450819672131147
+        ],
+        "auc_ci95": [
+          0.42943594981995403,
+          0.5888787845368025
+        ]
+      },
+      "feat_logistic": {
+        "head": "logistic_direction",
+        "features": "lagged",
+        "brier": 0.2535385212243945,
+        "brier_minus_prior": 0.003223685351714578,
+        "brier_skill_vs_prior": -0.012878522922845415,
+        "direction_acc": 0.4959016393442623,
+        "auc": 0.4843960182943234,
+        "brier_ci95": [
+          0.24765583732772234,
+          0.25964328432582684
+        ],
+        "brier_minus_prior_ci95": [
+          -0.003257908805385992,
+          0.009784429528925123
+        ],
+        "brier_skill_vs_prior_ci95": [
+          -0.03916563390859251,
+          0.012982238982102606
+        ],
+        "direction_acc_ci95": [
+          0.430327868852459,
+          0.5614754098360656
+        ],
+        "auc_ci95": [
+          0.41986508965189917,
+          0.5521524892605432
+        ]
+      }
+    },
+    "paired_representation_minus_lagged": {
+      "ridge_repr_minus_feat_terminal_mae": {
+        "point": -4.4034898742767795e-05,
+        "ci95": [
+          -0.00014338377139835645,
+          5.268132673175659e-05
+        ]
+      },
+      "ridge_repr_minus_feat_direction_acc": {
+        "point": 0.05737704918032788,
+        "ci95": [
+          -0.0491803278688524,
+          0.1598360655737705
+        ]
+      },
+      "ridge_repr_minus_feat_auc": {
+        "point": 0.05730427764326074,
+        "ci95": [
+          -0.06318208013115242,
+          0.17148994740464432
+        ]
+      },
+      "logistic_repr_minus_feat_brier": {
+        "point": -0.003334807215099267,
+        "ci95": [
+          -0.009927634325037005,
+          0.003077920168988498
+        ]
+      },
+      "logistic_repr_minus_feat_brier_skill_vs_prior": {
+        "point": 0.013322451318049322,
+        "ci95": [
+          -0.012289085765799667,
+          0.03972098616133502
+        ]
+      },
+      "logistic_repr_minus_feat_direction_acc": {
+        "point": -0.016393442622950838,
+        "ci95": [
+          -0.13114754098360654,
+          0.09836065573770492
+        ]
+      },
+      "logistic_repr_minus_feat_auc": {
+        "point": 0.025760021522733434,
+        "ci95": [
+          -0.06479423951122662,
+          0.118436905843045
+        ]
+      }
+    },
+    "test_anchor_indices": [
+      15408,
+      15415,
+      15422,
+      15429,
+      15436,
+      15443,
+      15450,
+      15457,
+      15464,
+      15471,
+      15478,
+      15485,
+      15492,
+      15499,
+      15506,
+      15513,
+      15520,
+      15527,
+      15534,
+      15541,
+      15548,
+      15555,
+      15562,
+      15569,
+      15576,
+      15583,
+      15590,
+      15597,
+      15604,
+      15611,
+      15618,
+      15625,
+      15632,
+      15639,
+      15646,
+      15653,
+      15660,
+      15667,
+      15674,
+      15681,
+      15688,
+      15695,
+      15702,
+      15709,
+      15716,
+      15723,
+      15730,
+      15737,
+      15744,
+      15751,
+      15758,
+      15765,
+      15772,
+      15779,
+      15786,
+      15793,
+      15800,
+      15807,
+      15814,
+      15821,
+      15828,
+      15835,
+      15842,
+      15849,
+      15856,
+      15863,
+      15870,
+      15877,
+      15884,
+      15891,
+      15898,
+      15905,
+      15912,
+      15919,
+      15926,
+      15933,
+      15940,
+      15947,
+      15954,
+      15961,
+      15968,
+      15975,
+      15982,
+      15989,
+      15996,
+      16003,
+      16010,
+      16017,
+      16024,
+      16031,
+      16038,
+      16045,
+      16052,
+      16059,
+      16066,
+      16073,
+      16080,
+      16087,
+      16094,
+      16101,
+      16108,
+      16115,
+      16122,
+      16129,
+      16136,
+      16143,
+      16150,
+      16157,
+      16164,
+      16171,
+      16178,
+      16185,
+      16192,
+      16199,
+      16206,
+      16213,
+      16220,
+      16227,
+      16234,
+      16241,
+      16248,
+      16255,
+      16262,
+      16269,
+      16276,
+      16283,
+      16290,
+      16297,
+      16304,
+      16311,
+      16318,
+      16325,
+      16332,
+      16339,
+      16346,
+      16353,
+      16360,
+      16367,
+      16374,
+      16381,
+      16388,
+      16395,
+      16402,
+      16409,
+      16416,
+      16423,
+      16430,
+      16437,
+      16444,
+      16451,
+      16458,
+      16465,
+      16472,
+      16479,
+      16486,
+      16493,
+      16500,
+      16507,
+      16514,
+      16521,
+      16528,
+      16535,
+      16542,
+      16549,
+      16556,
+      16563,
+      16570,
+      16577,
+      16584,
+      16591,
+      16598,
+      16605,
+      16612,
+      16619,
+      16626,
+      16633,
+      16640,
+      16647,
+      16654,
+      16661,
+      16668,
+      16675,
+      16682,
+      16689,
+      16696,
+      16703,
+      16710,
+      16717,
+      16724,
+      16731,
+      16738,
+      16745,
+      16752,
+      16759,
+      16766,
+      16773,
+      16780,
+      16787,
+      16794,
+      16801,
+      16808,
+      16815,
+      16822,
+      16829,
+      16836,
+      16843,
+      16850,
+      16857,
+      16864,
+      16871,
+      16878,
+      16885,
+      16892,
+      16899,
+      16906,
+      16913,
+      16920,
+      16927,
+      16934,
+      16941,
+      16948,
+      16955,
+      16962,
+      16969,
+      16976,
+      16983,
+      16990,
+      16997,
+      17004,
+      17011,
+      17018,
+      17025,
+      17032,
+      17039,
+      17046,
+      17053,
+      17060,
+      17067,
+      17074,
+      17081,
+      17088,
+      17095,
+      17102,
+      17109
+    ]
+  },
+  "interpretation_guardrails": [
+    "Retrospective only; the same EWZ test period has informed prior design work.",
+    "One asset; overlap with the original Kronos pretraining corpus is unknown.",
+    "No transaction costs, slippage, or capacity analysis.",
+    "A positive or negative difference here is not a fresh confirmation.",
+    "The two feature sets are not claimed to be information-equivalent: the lagged features use their standard 169-bar warmup, while the frozen representation uses exactly the 128-bar context."
+  ]
+}

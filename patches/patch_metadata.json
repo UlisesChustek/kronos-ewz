@@ -1,0 +1,19 @@
+{
+  "base_commit": "67b630e67f6a18c9e9be918d9b4337c960db1e9a",
+  "base_commit_short": "67b630e",
+  "modified_tracked_files": [
+    "finetune_csv/config_loader.py",
+    "finetune_csv/finetune_base_model.py",
+    "finetune_csv/train_sequential.py",
+    "model/module.py"
+  ],
+  "untracked_preserved_snapshots": [
+    "finetune_csv/finetune_base_model.py.orig",
+    "model/module.py.orig"
+  ],
+  "patch_file": "patches/vendored-kronos-from-67b630e.patch",
+  "patch_sha256": "24db0b94e2ad28909053d0329740de39ed0d420b10ec324dab2ba31ef6c22e68",
+  "patch_bytes": 42137,
+  "generation_command": "cd third_party/Kronos && git diff > ../../patches/vendored-kronos-from-67b630e.patch",
+  "note": "Cumulative diff against the upstream base commit; includes pre-existing local changes. Apply only to a clean base-commit checkout."
+}

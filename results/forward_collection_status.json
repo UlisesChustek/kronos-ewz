@@ -1,0 +1,12 @@
+{
+  "at_utc": "2026-11-05T19:12:04.371153+00:00",
+  "symbol_candidate": "EWZ.USUSD",
+  "accepted": false,
+  "urls": [
+    "https://datafeed.dukascopy.com/datafeed/EWZ.USUSD/2026/09/30/BID_candles_hour_1.bi5"
+  ],
+  "source": "Dukascopy BID_candles_hour_1.bi5",
+  "price_divisor_candidate": 1000,
+  "verification": "requires seven matching historical overlap bars",
+  "error": "HTTPError: HTTP Error 429: Too Many Requests"
+}

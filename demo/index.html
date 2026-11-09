@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kronos × EWZ — Probabilistic Forecast Explorer</title>
+<meta name="description" content="Interactive explorer for a Kronos financial foundation model fine-tuned on EWZ hourly data. 64 sampled paths, replayable across a year.">
+<meta name="theme-color" content="#070a0f">
+<meta property="og:title" content="Kronos × EWZ — Probabilistic Forecast Explorer">
+<meta property="og:description" content="64 sampled futures for EWZ from a fine-tuned financial foundation model. Replay any month and compare the forecast with what actually happened.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23070a0f'/%3E%3Cpath d='M14 44l10-12 8 6 8-14 10 10' stroke='%236ef2b0' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="research-banner">
+  <div class="wrap">
+    <b>Research artifact</b>
+    <span>· no trading edge claimed ·</span>
+    <a href="case-study.html#direct-forward-update">read the latest research update →</a>
+  </div>
+</div>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#">Kronos <span>×</span> EWZ</a>
+    <nav class="nav-links">
+      <a href="#method">Method</a>
+      <a href="case-study.html">Case study</a>
+      <a href="https://github.com/shiyu-coder/Kronos" target="_blank" rel="noopener">Upstream</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow"><span class="pulse"></span> Interactive case study · probabilistic forecasting</p>
+    <h1>What does the model<br> see in <span class="grad">EWZ</span>?</h1>
+    <p class="lede">
+      A 24.7M-parameter financial foundation model, fine-tuned on 9.7 years of EWZ hourly data.
+      Sample 64 possible futures, replay any month, and compare the forecast with what actually happened.
+    </p>
+    <div class="hero-meta">
+      <span class="chip"><b>64</b> sampled paths</span>
+      <span class="chip"><b>512</b>-bar context</span>
+      <span class="chip">Dukascopy <b>1h</b></span>
+      <span class="chip" id="meta-updated">as of —</span>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <section class="controls card" aria-label="Forecast controls">
+    <div class="control grow">
+      <label>Model</label>
+      <div class="segmented" id="model-buttons" role="group" aria-label="Model"></div>
+    </div>
+    <div class="control">
+      <label for="date-select">As of</label>
+      <select id="date-select"></select>
+    </div>
+    <div class="control">
+      <label>Context</label>
+      <div class="segmented small" id="context-buttons" role="group" aria-label="History context"></div>
+    </div>
+    <div class="control">
+      <label>Timeline</label>
+      <button class="btn ghost" id="play-btn" type="button" aria-pressed="false">▶ Play</button>
+    </div>
+    <div class="control">
+      <label for="show-samples">Paths</label>
+      <label class="check"><input type="checkbox" id="show-samples"> Show 8 samples</label>
+    </div>
+  </section>
+
+  <section class="metrics" id="metrics" aria-label="Forecast metrics"></section>
+
+  <section class="card chart-card">
+    <div class="chart-head">
+      <div>
+        <h2 id="chart-title">—</h2>
+        <p id="chart-sub">—</p>
+      </div>
+      <div class="legend" aria-hidden="true">
+        <span><i class="sw candle"></i>EWZ history</span>
+        <span><i class="sw band"></i>50% / 90% band</span>
+        <span><i class="sw med"></i>median path</span>
+        <span id="legend-actual"><i class="sw act"></i>actual</span>
+      </div>
+    </div>
+    <div id="chart" class="chart" role="img" aria-label="EWZ hourly candlestick history with a sampled forecast fan chart"></div>
+    <div class="outcome" id="outcome"></div>
+  </section>
+
+  <section class="note-grid">
+    <div class="card note">
+      <span class="tag">How to read it</span>
+      <p>Each thin line is one sampled future. The band is the 5–95th percentile of 64 paths; the solid line is the median. The P(up) confidence interval measures Monte Carlo sampling uncertainty within the model, not its accuracy or calibration against the market.</p>
+    </div>
+    <div class="card note">
+      <span class="tag">What it is not</span>
+      <p>Not a trading signal. On the held-out test set the fine-tuned model does not beat a random walk on point error, and its 45.1% directional accuracy equals always predicting down. <a href="case-study.html#why">Why it failed →</a></p>
+    </div>
+    <div class="card note">
+      <span class="tag">Session data</span>
+      <p>EWZ trades in US hours, so 24 hourly bars are roughly <b>5 calendar days</b> — not 24 hours. The 7-bar model is the ~1 trading-day view.</p>
+    </div>
+  </section>
+
+  <section class="method" id="method">
+    <p class="kicker">Method</p>
+    <h2>Reproducible, precomputed, and honest</h2>
+    <div class="method-grid">
+      <div>
+        <h3>Pipeline</h3>
+        <ol>
+          <li>Dukascopy EWZ.US-USD 1h BID bars → UTC session data.</li>
+          <li>512-bar lookback, normalized on the lookback only.</li>
+          <li>Fine-tuned tokenizer + predictor; 64 Monte Carlo paths.</li>
+          <li>5–95% band, median path, and terminal-return metrics.</li>
+        </ol>
+      </div>
+      <div>
+        <h3>Evaluation</h3>
+        <ol>
+          <li>Chronological 80/10/10 split; test is 2025-11 → 2026-10.</li>
+          <li>Calibration fit on validation only; test inspected repeatedly during development.</li>
+          <li>Bootstrap CIs for MAE/RMSE deltas, Wilson CIs for direction.</li>
+          <li>Compared with zero-shot and a random-walk baseline.</li>
+        </ol>
+      </div>
+      <div>
+        <h3>Caveats</h3>
+        <ul>
+          <li>CFD feed volume, not consolidated exchange volume.</li>
+          <li>EWZ only; no cross-sectional or macro information.</li>
+          <li>Kronos upstream is MIT-licensed; no separate project license is included. Not investment advice.</li>
+          <li>Probabilities are raw model frequencies, not calibrated.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <div class="who">Kronos × EWZ research</div>
+      <div class="fine">Python 3.12 · PyTorch 2.15 · 2× RTX 3090 · Dukascopy · Kronos (MIT)</div>
+    </div>
+    <div class="fine right">
+      Research demo, not investment advice. Forecasts are probabilistic scenarios, not predictions.
+      <a href="case-study.html">Read the full case study →</a>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/plotly.min.js"></script>
+<script src="data/demo.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

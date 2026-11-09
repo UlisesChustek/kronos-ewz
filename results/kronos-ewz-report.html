@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kronos × EWZ — Fine-tuning a financial foundation model</title>
+<meta name="description" content="Case study: fine-tuning Kronos-small on 9.7 years of EWZ hourly data and benchmarking it against a random walk.">
+<style>
+  :root{
+    --bg:#070a0f;
+    --panel:#0d131c;
+    --panel-2:#111927;
+    --line:#1d2938;
+    --text:#e9eff8;
+    --muted:#8ea0b8;
+    --mint:#6ef2b0;
+    --blue:#6aa9ff;
+    --amber:#ffb86b;
+    --red:#ff7a7a;
+    --grad:linear-gradient(135deg,#6ef2b0 0%,#6aa9ff 100%);
+    --radius:20px;
+  }
+
+  *{box-sizing:border-box}
+  html{background:var(--bg);scroll-behavior:smooth;scrollbar-color:#2b3d55 #070a0f;scrollbar-width:thin}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    line-height:1.55;
+  }
+
+  a{color:var(--mint);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .wrap{width:min(1180px,92vw);margin:0 auto}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    position:relative;
+    overflow:hidden;
+    padding:clamp(56px,9vw,110px) 0 clamp(48px,7vw,90px);
+    border-bottom:1px solid var(--line);
+  }
+  .hero::before{
+    content:"";
+    position:absolute;inset:0;
+    background:
+      radial-gradient(900px 500px at 12% 0%, rgba(110,242,176,.16), transparent 60%),
+      radial-gradient(800px 500px at 92% 12%, rgba(106,169,255,.18), transparent 62%),
+      radial-gradient(600px 400px at 60% 100%, rgba(110,242,176,.06), transparent 70%);
+    pointer-events:none;
+  }
+  .hero::after{
+    content:"";
+    position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size:64px 64px;
+    mask-image:linear-gradient(to bottom, rgba(0,0,0,.55), transparent 85%);
+    pointer-events:none;
+  }
+  .hero .wrap{position:relative;z-index:1}
+
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:10px;
+    font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--mint);
+    margin-bottom:22px;
+  }
+  .eyebrow::before{
+    content:"";width:26px;height:2px;background:var(--grad);border-radius:2px;
+  }
+
+  h1{
+    margin:0;
+    font-size:clamp(3.4rem,10vw,7.4rem);
+    line-height:.92;
+    letter-spacing:-.055em;
+    font-weight:850;
+  }
+  h1 .x{
+    background:var(--grad);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+    font-weight:400;
+  }
+
+  .lede{
+    max-width:760px;
+    margin:28px 0 0;
+    font-size:clamp(1.05rem,1.7vw,1.35rem);
+    color:#c4d2e4;
+  }
+
+  .tagline{
+    margin:22px 0 0;
+    font-size:clamp(1.15rem,2.1vw,1.55rem);
+    font-weight:700;
+    letter-spacing:-.02em;
+    color:var(--text);
+  }
+  .tagline span{
+    background:var(--grad);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+
+  .badges{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:7px 13px;border:1px solid var(--line);border-radius:999px;
+    background:rgba(255,255,255,.02);
+    color:#b8c7db;font-size:12.5px;font-weight:600;letter-spacing:.02em;
+  }
+  .badge b{color:var(--text);font-weight:700}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}
+
+  /* ---------- SECTION HEADS ---------- */
+  section{padding:clamp(52px,7vw,84px) 0;border-bottom:1px solid var(--line)}
+  .kicker{
+    font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 14px;
+  }
+  h2{
+    margin:0 0 14px;
+    font-size:clamp(1.7rem,3.6vw,2.6rem);
+    letter-spacing:-.035em;line-height:1.05;font-weight:800;
+  }
+  .section-intro{max-width:780px;color:var(--muted);font-size:1.02rem;margin:0 0 34px}
+
+  /* ---------- BIG STATS ---------- */
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:16px;
+  }
+  .stat{
+    position:relative;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:26px 24px 22px;
+    transition:transform .25s ease,border-color .25s ease;
+  }
+  .stat:hover{transform:translateY(-3px);border-color:#2b3d55}
+  .stat .num{
+    font-size:clamp(2.9rem,5.6vw,4.6rem);
+    font-weight:850;
+    letter-spacing:-.06em;
+    line-height:.9;
+    background:var(--grad);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+    font-variant-numeric:tabular-nums;
+  }
+  .stat .num.plain{
+    background:none;-webkit-text-fill-color:var(--text);color:var(--text);
+  }
+  .stat .label{margin-top:16px;font-size:14.5px;font-weight:700;color:var(--text)}
+  .stat .sub{margin-top:6px;font-size:12.5px;color:var(--muted);line-height:1.45}
+  .stat .corner{
+    position:absolute;top:18px;right:18px;font-size:10.5px;font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:#5f748e;
+  }
+
+  .stat-grid.secondary{grid-template-columns:repeat(4,1fr);margin-top:16px}
+  .stat-grid.secondary .stat{padding:22px 22px 18px}
+  .stat-grid.secondary .num{font-size:clamp(2rem,3.4vw,2.9rem)}
+  .stat-grid.secondary .label{font-size:13px}
+
+  /* ---------- CALLOUT ---------- */
+  .callout{
+    margin-top:26px;
+    border:1px solid #244033;
+    background:linear-gradient(135deg, rgba(110,242,176,.10), rgba(106,169,255,.07));
+    border-radius:var(--radius);
+    padding:28px 30px;
+  }
+  .callout p{margin:0;font-size:clamp(1rem,1.7vw,1.2rem);color:#d9e6f5}
+  .callout strong{color:var(--mint);font-weight:750}
+
+  /* ---------- CHART ---------- */
+  .chart{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    padding:26px 26px 20px;
+  }
+  .chart-head{display:flex;justify-content:space-between;align-items:baseline;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+  .chart-title{font-weight:750;font-size:1.02rem}
+  .chart-note{font-size:12px;color:var(--muted)}
+  .rows{display:grid;gap:14px}
+  .row{display:grid;grid-template-columns:150px 1fr 76px;align-items:center;gap:14px}
+  .row .name{font-size:13.5px;font-weight:650;color:#c7d5e7;text-align:right}
+  .row .name em{font-style:normal;color:var(--muted);font-weight:500}
+  .track{
+    position:relative;height:26px;border-radius:7px;
+    background:#0a1018;border:1px solid #1a2636;overflow:hidden;
+  }
+  .track .fill{
+    position:absolute;inset:0 auto 0 0;border-radius:6px;
+    background:linear-gradient(90deg,#3f6f95,#6aa9ff);
+  }
+  .track .fill.best{background:linear-gradient(90deg,#2f8f68,#6ef2b0)}
+  .track .fill.zero{background:linear-gradient(90deg,#4a5470,#8ea0b8)}
+  .track .fill.bad{background:linear-gradient(90deg,#8a5a35,#ffb86b)}
+  .track .rw{
+    position:absolute;top:-1px;bottom:-1px;left:72.12%;
+    border-left:1.5px dashed rgba(255,255,255,.55);
+  }
+  .row .val{font-size:13.5px;font-weight:750;font-variant-numeric:tabular-nums;color:var(--text);text-align:right}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:7px;vertical-align:middle}
+  .legend .dash{width:14px;height:0;border-top:1.5px dashed rgba(255,255,255,.55);vertical-align:middle;margin-right:7px}
+
+  /* ---------- TWO COLUMNS ---------- */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .panel{
+    border:1px solid var(--line);border-radius:var(--radius);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    padding:28px;
+  }
+  .panel h3{margin:0 0 18px;font-size:1.08rem;letter-spacing:-.01em}
+  .panel ul{margin:0;padding:0;list-style:none;display:grid;gap:14px}
+  .panel li{position:relative;padding-left:26px;font-size:14.5px;color:#c3d1e3}
+  .panel li::before{
+    position:absolute;left:0;top:0;font-weight:800;
+  }
+  .panel.good li::before{content:"✓";color:var(--mint)}
+  .panel.bad li::before{content:"→";color:var(--amber)}
+  .panel li b{color:var(--text);font-weight:700}
+
+  /* ---------- ENGINEERING CARDS ---------- */
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .card{
+    border:1px solid var(--line);border-radius:var(--radius);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    padding:24px;
+  }
+  .card .tag{
+    display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--mint);margin-bottom:12px;
+  }
+  .card h3{margin:0 0 8px;font-size:1.02rem;letter-spacing:-.01em}
+  .card p{margin:0;color:var(--muted);font-size:13.5px}
+  .card code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+    color:#b7c8dd;background:#0a1018;border:1px solid #1a2636;border-radius:5px;padding:1px 5px;
+  }
+
+  /* ---------- PIPELINE ---------- */
+  .pipeline{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
+  .step{
+    flex:1 1 150px;min-width:140px;
+    border:1px solid var(--line);border-radius:14px;
+    background:#0b1119;padding:16px 15px;
+    position:relative;
+  }
+  .step .n{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--mint);margin-bottom:8px}
+  .step .t{font-weight:700;font-size:13.5px;line-height:1.3}
+  .step .d{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4}
+
+  /* ---------- TABLE ---------- */
+  .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+  table{width:100%;border-collapse:collapse;min-width:640px}
+  th,td{padding:15px 18px;text-align:right;font-size:13.5px;font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{text-align:left}
+  thead th{
+    font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+    font-weight:700;border-bottom:1px solid var(--line);background:#0b1119;
+  }
+  tbody tr+tr td{border-top:1px solid #16202e}
+  tbody td:first-child{font-weight:650;color:#d4e1f0}
+  td .muted{color:var(--muted);font-size:12px}
+  .good{color:var(--mint)}
+  .warn{color:var(--amber)}
+  .bad{color:var(--red)}
+
+  /* ---------- NEXT ---------- */
+  .next{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .next .card p{margin-top:6px}
+
+  /* ---------- FOOTER ---------- */
+  footer{padding:44px 0 60px;color:var(--muted);font-size:12.5px}
+  .foot{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-start}
+  .foot .who{color:#c6d4e6;font-weight:700;font-size:13.5px}
+  .foot .stack{margin-top:5px}
+  .disclaimer{max-width:560px;text-align:right;line-height:1.5}
+
+  .print-btn{
+    position:absolute;right:0;top:0;z-index:20;
+    border:1px solid #2b3d55;background:#0e1722;color:var(--text);
+    padding:10px 15px;border-radius:999px;font:inherit;font-size:12px;font-weight:700;
+    cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  .print-btn:hover{border-color:var(--mint);color:var(--mint)}
+
+  @media (max-width:900px){
+    .stat-grid,.stat-grid.secondary{grid-template-columns:repeat(2,1fr)}
+    .split,.cards,.next{grid-template-columns:1fr}
+    .row{grid-template-columns:110px 1fr 66px}
+    .disclaimer{text-align:left}
+    .print-btn{display:none}
+  }
+  @media (max-width:520px){
+    .stat-grid,.stat-grid.secondary{grid-template-columns:1fr}
+    .row{grid-template-columns:1fr;gap:6px}
+    .row .name{text-align:left}
+    .row .val{text-align:left}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important;animation:none!important}
+  }
+
+  @media print{
+    :root{
+      --bg:#fff;--panel:#f7f9fc;--panel-2:#f7f9fc;--line:#dbe3ee;
+      --text:#0b1220;--muted:#4c5d73;
+    }
+    body{background:#fff;color:#0b1220}
+    .hero{padding:34px 0 30px}
+    .hero::before,.hero::after{display:none}
+    .print-btn{display:none}
+    section{padding:30px 0;break-inside:avoid}
+    .stat,.panel,.card,.chart,.table-wrap{break-inside:avoid;box-shadow:none}
+    .stat .num,.stat .num.plain,h1 .x,.tagline span{
+      background:none;-webkit-text-fill-color:#0b1220;color:#0b1220;
+    }
+    .track{background:#eef2f8;border-color:#dbe3ee}
+    .legend .rw,.track .rw{border-color:#0b1220}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <button class="print-btn" onclick="window.print()" aria-label="Print or save as PDF">Print / Save PDF</button>
+    <div class="eyebrow">Case study · diagnostic negative result</div>
+    <h1>Kronos <span class="x">×</span> EWZ</h1>
+    <p class="lede">
+      Fine-tuning a 24.7M-parameter financial foundation model on <b>9.7 years</b> of
+      Brazilian equity ETF data — then benchmarking it honestly against a random walk.
+    </p>
+    <div class="callout" id="v5-update" style="margin:0 0 18px">
+      <p><strong>2026-11-05 · v5 pilot:</strong> a frozen pretrained tokenizer, shorter context,
+      and corrected training reduced 7-bar path MAE by <b>8.6% versus v3</b> on 244 identical
+      retrospective windows (0.009554 → 0.008734). It remains <b>6.4% above unchanged price</b>;
+      51.6% direction equals always predicting down. Raw 90% pointwise coverage is 71.1%.
+      The historical v3/v4 explorer data is preserved. New measurements are exploratory,
+      from one seed; they do not establish a trading advantage.</p>
+    </div>
+    <p class="tagline">It learned the <span>distribution</span>. It did not learn the <span>direction</span>.</p>
+    <div class="badges">
+      <span class="badge" style="border-color:#5a4426;color:var(--amber)"><b>Research artifact</b> · no trading edge claimed</span>
+      <span class="badge"><span class="dot"></span><b>Independent</b> research</span>
+      <span class="badge"><b>PyTorch</b> 2.15 · CUDA 13.2</span>
+      <span class="badge"><b>2×</b> RTX 3090 24 GB</span>
+      <span class="badge"><b>17,120</b> hourly bars · <b>2,455</b> daily</span>
+      <span class="badge"><b>Kronos-small</b> · MIT</span>
+      <span class="badge"><b>2026</b></span>
+      <a class="badge" href="../demo/index.html" style="color:var(--mint);border-color:#2b4a3d">&larr; Forecast explorer</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <section class="wrap" id="direct-forward-update">
+    <p class="kicker">Latest research update · 2026-11-05 19:12 UTC</p>
+    <h2>A direct return predictor, followed by a frozen evaluation</h2>
+    <p class="section-intro">
+      A linear return predictor was trained on the last hidden vector of the original frozen
+      Kronos-small model, using 128 past hourly bars. Regularization was selected on chronological
+      validation data. Its coefficients were fitted on the original training split.
+      The following terminal errors cover the same 244 retrospective seven-bar targets.
+    </p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Forecast</th><th>Terminal MAE ↓</th><th>Difference vs unchanged price</th></tr></thead>
+      <tbody>
+        <tr><td>Unchanged price</td><td>0.013749</td><td>Reference</td></tr>
+        <tr><td>Direct ridge · ordinary price/volume features</td><td>0.013753</td><td>+0.000004</td></tr>
+        <tr><td>Direct ridge · frozen Kronos representation</td><td>0.013709</td><td>−0.000040</td></tr>
+        <tr><td>v5 sampled-path median</td><td>0.014171</td><td>+0.000422</td></tr>
+      </tbody>
+    </table></div>
+    <p class="chart-note" style="margin-top:14px">
+      The direct representation model improves terminal error by about 0.4 basis points versus
+      unchanged price. Its paired 95% block-bootstrap interval spans −1.4 to +0.6 basis points.
+      The interval includes zero. AUC is 0.540, with a 95% interval of 0.462–0.616.
+      These terminal errors differ from average path errors elsewhere in this report.
+      The direct direction classifier reached AUC 0.510.
+    </p>
+    <div class="callout" style="margin-top:24px">
+      <p><strong>New-data evaluation is waiting for verified data.</strong>
+      The Dukascopy retry at 2026-11-05 19:12 UTC returned HTTP 429.
+      Zero continuation bars have been accepted. Verified history ends on
+      2026-10-30 at 19:00 UTC. The runtime forward ledger is generated locally and is not
+      shipped; no forecast has been issued in this release. Prospective performance is pending.</p>
+    </div>
+    <h3 style="margin-top:28px">Frozen candidate and validation checks</h3>
+    <p class="section-intro">
+      The saved candidate fixes the original pretrained encoder, tokenizer, training scaler,
+      ridge penalty of 100000, and return-head coefficients. The manifest records the freeze
+      time and SHA256 fingerprints. A replay on the saved CUDA device reproduces terminal MAE 0.013708562535 exactly.
+      The evaluation workflow records issuance time, rejects conflicting revisions, and scores
+      outcomes after seven complete target bars. Timing flags identify targets already begun
+      at issuance. All 41 regression tests passed.
+    </p>
+    <p class="chart-note">
+      The collector requires at least seven matching historical overlap bars before accepting
+      a continuation file. The candidate endpoint and price scale remain unverified because
+      the provider rejected the request before any overlap could be inspected.
+      Source files: results/direct_probe.json, results/forward_collection_status.json,
+      and finetuned/direct_frozen_v2/manifest.json. The runtime ledger is generated locally
+      by scripts/forward_ewz.py update and is not shipped.
+    </p>
+  </section>
+
+
+  <!-- ================= HEADLINE STATS ================= -->
+  <section class="wrap">
+    <p class="kicker">Historical v1–v4 results</p>
+    <h2>Fine-tuning worked. Forecasting didn’t.</h2>
+    <p class="section-intro">
+      Four historical variants — baseline, normalization fix, horizon change, masked loss — point
+      to the same conclusion. The model adapts to EWZ’s scale and volatility, but adds no usable
+      edge over the simplest possible forecast.
+    </p>
+
+    <div class="stat-grid">
+      <div class="stat">
+        <span class="corner">vs zero-shot</span>
+        <div class="num">−18%</div>
+        <div class="label">MAE improvement</div>
+        <div class="sub">0.0237 → 0.0194 · 24-bar test · v4</div>
+      </div>
+      <div class="stat">
+        <span class="corner">model</span>
+        <div class="num plain">24.7M</div>
+        <div class="label">Parameters fine-tuned</div>
+        <div class="sub">Tokenizer + predictor · 512-bar lookback</div>
+      </div>
+      <div class="stat">
+        <span class="corner">dataset</span>
+        <div class="num plain">17,120</div>
+        <div class="label">Hourly bars</div>
+        <div class="sub">2017-01-26 → 2026-10-30 · US session</div>
+      </div>
+      <div class="stat">
+        <span class="corner">upstream</span>
+        <div class="num plain">2</div>
+        <div class="label">Bugs found &amp; patched</div>
+        <div class="sub">Normalization leakage · RoPE inference</div>
+      </div>
+    </div>
+
+    <div class="stat-grid secondary">
+      <div class="stat">
+        <div class="num">45.1%</div>
+        <div class="label">Directional accuracy</div>
+        <div class="sub">= always-down baseline · 95% CI 34–57%</div>
+      </div>
+      <div class="stat">
+        <div class="num">92.4%</div>
+        <div class="label">90% interval coverage</div>
+        <div class="sub">after calibration · 69.4% raw</div>
+      </div>
+      <div class="stat">
+        <div class="num">0.99<span style="font-size:.5em;color:var(--muted)"> / </span>1.26</div>
+        <div class="label">Vol amplification</div>
+        <div class="sub">predicted / actual · under-forecast</div>
+      </div>
+      <div class="stat">
+        <div class="num">−0.03</div>
+        <div class="label">Brier skill vs base rate</div>
+        <div class="sub">≈ 0 after calibration · no ranking edge</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <p>
+        <strong>The result that matters:</strong> after removing the model’s drift bias, directional
+        accuracy converges to the base rate. Fine-tuning taught the model <em>what EWZ looks like</em>,
+        not <em>where it goes next</em> — and that is a defensible, reproducible finding.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= CHART ================= -->
+  <section class="wrap">
+    <p class="kicker">24-bar horizon · 71 test windows</p>
+    <h2>Point error vs. a random walk</h2>
+    <p class="section-intro">
+      Lower is better. A random walk — “tomorrow equals today” — is the null hypothesis every
+      forecast must beat. No fine-tuned variant clears it.
+    </p>
+
+    <div class="chart">
+      <div class="chart-head">
+        <div class="chart-title">Normalized MAE · test set · 2025-11 → 2026-10</div>
+        <div class="chart-note">bars start at zero · dashed line = random walk · v1 is marginally lowest</div>
+      </div>
+
+      <div class="rows">
+        <div class="row">
+          <div class="name"><em>Random walk</em></div>
+          <div class="track"><div class="fill zero" style="width:72.12%"></div><div class="rw"></div></div>
+          <div class="val">0.0180</div>
+        </div>
+        <div class="row">
+          <div class="name">v4 · masked loss <em>· 6 ep</em></div>
+          <div class="track"><div class="fill best" style="width:77.48%"></div><div class="rw"></div></div>
+          <div class="val">0.0194</div>
+        </div>
+        <div class="row">
+          <div class="name">v1 · baseline <em>· 20 ep</em></div>
+          <div class="track"><div class="fill" style="width:76.96%"></div><div class="rw"></div></div>
+          <div class="val">0.0192</div>
+        </div>
+        <div class="row">
+          <div class="name">v2 · norm fix <em>· 30 ep</em></div>
+          <div class="track"><div class="fill bad" style="width:83.44%"></div><div class="rw"></div></div>
+          <div class="val">0.0209</div>
+        </div>
+        <div class="row">
+          <div class="name">Zero-shot</div>
+          <div class="track"><div class="fill zero" style="width:94.92%"></div><div class="rw"></div></div>
+          <div class="val">0.0237</div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span><i style="background:linear-gradient(90deg,#2f8f68,#6ef2b0)"></i>v4 · latest variant</span>
+        <span><i style="background:linear-gradient(90deg,#3f6f95,#6aa9ff)"></i>fine-tuned</span>
+        <span><i style="background:linear-gradient(90deg,#8a5a35,#ffb86b)"></i>worse</span>
+        <span><span class="dash"></span>random walk (0.0180)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= WHAT WORKED / DIDN'T ================= -->
+  <section class="wrap">
+    <p class="kicker">Interpretation</p>
+    <h2>What transferred — and what didn’t</h2>
+    <p class="section-intro">
+      Separating “the model learned something” from “the model predicts something” is the whole point
+      of the exercise. The two answers are different.
+    </p>
+
+    <div class="split">
+      <div class="panel good">
+        <h3>Learned ✓</h3>
+        <ul>
+          <li><b>Scale and volatility</b> of EWZ hourly data: point error dropped 18–20% versus zero-shot.</li>
+          <li><b>Marginal scale</b>: raw Brier improved from 0.442 to 0.326 versus zero-shot, and calibrated 90% intervals cover 92% of outcomes — though the probability ranking never beats the 0.248 base-rate benchmark.</li>
+          <li><b>Interval width</b>: a single path-scale factor lifts 90% coverage from 69% to 92%.</li>
+          <li><b>Transfer from pretraining</b>: a 24.7M model adapted to a new asset with ~2k independent days.</li>
+        </ul>
+      </div>
+      <div class="panel bad">
+        <h3>Didn’t learn →</h3>
+        <ul>
+          <li><b>Conditional direction</b>: 45.1% at 24 bars, 51.2% at 7 bars — indistinguishable from chance, and identical to always predicting down.</li>
+          <li><b>Regime drift</b>: a −0.40% mean path drift over 24 bars while the test period drifted +0.16%.</li>
+          <li><b>Probability ranking</b>: raw <code>p_up</code> is overdispersed; calibration then collapses it toward the 54.9% base rate.</li>
+          <li><b>Vol expansion</b>: amplification 0.99 predicted vs 1.26 realized; tails remain too thin.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= WHY ================= -->
+  <section class="wrap" id="why">
+    <p class="kicker">Diagnosis</p>
+    <h2>Why it failed — three explanations, tested</h2>
+    <p class="section-intro">
+      “It doesn’t beat a random walk” is a result, not an explanation. Three candidates explain it:
+      a stale directional bias, the absence of conditional signal, or the wrong evaluation target.
+      Each is separable on the same 71 held-out windows.
+    </p>
+
+    <h3>1 · The bearish tilt is drift, and drift is removable</h3>
+    <p style="color:#c3d1e3;max-width:820px;margin:0 0 20px;font-size:15px;line-height:1.7">
+      The model’s paths drift down by <b>0.40%</b> on average over 24 bars, while the test period drifted
+      <b>+0.16%</b>. That single offset explains the apparent bearish call — and almost nothing else.
+      Removing it (subtracting the cross-path mean drift per window) gives a clean decomposition:
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Forecast variant</th>
+            <th>Mean terminal move</th>
+            <th>Direction</th>
+            <th>AUC <code>P(up)</code></th>
+            <th>MAE / RW</th>
+            <th>Beats RW</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Raw model paths</td>
+            <td>−0.34%</td>
+            <td class="warn">45.1%</td>
+            <td>0.46</td>
+            <td class="warn">1.074</td>
+            <td>45.1%</td>
+          </tr>
+          <tr>
+            <td>Common drift removed</td>
+            <td>+0.05%</td>
+            <td>49.3%</td>
+            <td>0.43</td>
+            <td>1.027</td>
+            <td>42.3%</td>
+          </tr>
+          <tr>
+            <td>Per-path detrended <span class="muted">· shape only</span></td>
+            <td>+0.03%</td>
+            <td class="warn">43.7%</td>
+            <td>0.51</td>
+            <td>1.040</td>
+            <td>35.2%</td>
+          </tr>
+          <tr>
+            <td><em>Random walk</em></td>
+            <td>0.00%</td>
+            <td>—</td>
+            <td>0.50</td>
+            <td>1.000</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="chart-note" style="margin-top:14px">
+      Drift removal lifts the median from −0.34% to +0.05% and Brier skill from −0.32 to −0.03, but
+      direction only reaches 49.3%, AUC falls to 0.43, and MAE stays 2.7% worse than a random walk.
+      Per-path detrending — keeping shape, deleting each path’s own trend — lands at AUC 0.51 and 43.7%
+      direction. No directional advantage was demonstrated for the detrended paths in these windows.
+    </p>
+
+    <div class="callout" style="margin-top:26px">
+      <p>
+        <strong>Drift explains the tilt, not the error.</strong> Correcting it fixes the average level and
+        the probability calibration. These corrections did not demonstrate reliable predictive skill
+        from the last 512 bars to the next 24 on the evaluated sample.
+      </p>
+    </div>
+
+    <h3 style="margin-top:46px">2 · No conditional signal survives a fair baseline</h3>
+    <p style="color:#c3d1e3;max-width:820px;margin:0 0 20px;font-size:15px;line-height:1.7">
+      Same features, same chronological split, same windows. Momentum, reversal, and a regularized
+      logistic/ridge model are the cheapest test of whether EWZ itself is predictable at this horizon.
+      At 24 bars, nothing is:
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Signal</th>
+            <th>24-bar AUC <span class="muted">(95% CI)</span></th>
+            <th>24-bar direction</th>
+            <th>7-bar AUC <span class="muted">(95% CI)</span></th>
+            <th>7-bar direction</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Kronos</b> <span class="muted">· v4 / v3</span></td>
+            <td>0.46</td>
+            <td class="warn">45.1%</td>
+            <td>0.51</td>
+            <td>51.2%</td>
+          </tr>
+          <tr>
+            <td>Always down</td>
+            <td>0.50</td>
+            <td>45.1%</td>
+            <td>0.50</td>
+            <td>51.6%</td>
+          </tr>
+          <tr>
+            <td>Momentum · 24 bars</td>
+            <td>0.47 <span class="muted">(0.33–0.61)</span></td>
+            <td>47.9%</td>
+            <td>0.54 <span class="muted">(0.46–0.61)</span></td>
+            <td>51.2%</td>
+          </tr>
+          <tr>
+            <td>Reversal · 24 bars</td>
+            <td>0.53 <span class="muted">(0.39–0.67)</span></td>
+            <td>52.1%</td>
+            <td>0.46 <span class="muted">(0.39–0.54)</span></td>
+            <td>48.8%</td>
+          </tr>
+          <tr>
+            <td>Logistic · 19 features</td>
+            <td class="warn">0.41 <span class="muted">(0.28–0.55)</span></td>
+            <td>42.3%</td>
+            <td class="good">0.59 <span class="muted">(0.52–0.66)</span></td>
+            <td>53.7%</td>
+          </tr>
+          <tr>
+            <td>Ridge · 19 features</td>
+            <td>0.44 <span class="muted">(0.30–0.58)</span></td>
+            <td>43.7%</td>
+            <td>0.53 <span class="muted">(0.45–0.60)</span></td>
+            <td>48.8%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="chart-note" style="margin-top:14px">
+      At 24 bars every AUC interval covers 0.50, and Kronos sits at the bottom of the pack. At 7 bars the
+      logistic model reaches AUC 0.59 (permutation p ≈ 0.01) and 53.7% direction: weak short-horizon
+      structure that Kronos misses. It still does not improve MAE over a random walk (0.00821 for both),
+      and its direction edge is inside the always-down baseline’s interval. So the asset is not obviously
+      predictable at five days; at one day there is at most a small, fragile edge — and the generative
+      model does not find it.
+    </p>
+
+    <h3 style="margin-top:46px">3 · The probability layer is wrong in both directions</h3>
+    <div class="cards">
+      <div class="card">
+        <span class="tag">Raw</span>
+        <h3>Overdispersed frequencies</h3>
+        <p>
+          Across the 71 windows, raw <code>p_up</code> has standard deviation <b>0.223</b>. If the model
+          only knew the base rate, 64 paths would vary by about <b>0.062</b>. The extra spread is
+          sampling noise, not information.
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag">Calibrated</span>
+        <h3>Collapsed to the base rate</h3>
+        <p>
+          The validation-fit isotonic map shrinks <code>p_up</code> to a standard deviation of
+          <b>0.037</b> — below binomial noise — while Brier skill stays at <b>−0.03</b>. It corrects the
+          average level, not the ranking.
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag">Conditional hit rates</span>
+        <h3>The signal runs backwards</h3>
+        <p>
+          When raw <code>p_up</code> says up (25 windows), 52.0% actually rose; when it says down
+          (46 windows), <b>56.5%</b> rose. The logistic slope of “actual up” on logit
+          <code>p_up</code> is <b>−0.53</b>.
+        </p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:46px">What the evidence points to</h3>
+    <div class="split">
+      <div class="panel good">
+        <h3>Plausible, partially isolated</h3>
+        <ul>
+          <li><b>Objective mismatch</b>: token-level cross-entropy optimizes the conditional density of tokenized OHLC, not the conditional mean of 24-bar returns. Good marginal fit and no mean edge are compatible.</li>
+          <li><b>Model-side drift</b>: the −0.40% path drift is not inherited from the training set (+0.04% per 24 bars), so it is a sampling/generative bias, not a learned regime call.</li>
+        </ul>
+      </div>
+      <div class="panel bad">
+        <h3>Plausible, not isolated</h3>
+        <ul>
+          <li><b>Sample size</b>: 71 non-overlapping 5-day windows (~2k effective independent days) give a direction interval of roughly ±11pp. A small edge cannot be ruled out — only a practically useful one.</li>
+          <li><b>Asset and horizon</b>: one ETF, one 12-month test period, hourly CFD bars. The 7-bar logistic result hints at short-horizon reversal that a 5-day target cannot exploit.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:26px">
+      <p>
+        <strong>Scope.</strong> This is a diagnostic of one model on one asset over one period — not a
+        verdict on Kronos or financial foundation models. It rules out a usable 5-day point edge here.
+        It does not rule out value in cross-sectional ranking, distributional risk, or longer histories.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= ENGINEERING ================= -->
+  <section class="wrap">
+    <p class="kicker">Engineering</p>
+    <h2>What was actually built</h2>
+    <p class="section-intro">
+      Beyond training: an audit that found two upstream defects, a calibration harness fit only on
+      validation data, and an evaluation stack with confidence intervals.
+    </p>
+
+    <div class="cards">
+      <div class="card">
+        <span class="tag">Bug 01 · data pipeline</span>
+        <h3>Normalization leakage</h3>
+        <p>
+          The repo’s dataset normalized each window with statistics that included future bars, while
+          inference used lookback only. Patched to <code>past_x = x[:lookback]</code> and verified
+          per-sample mean ≈ 0, std ≈ 1.
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag">Bug 02 · inference</span>
+        <h3>Rotary position collapse</h3>
+        <p>
+          Single-query cross-attention collapsed RoPE positions to zero during autoregressive decoding.
+          Applied the upstream fix and verified query/key lengths and positions.
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag">Evaluation</span>
+        <h3>Calibration without test leakage</h3>
+        <p>
+          Temperature / top-p grid, isotonic maps for <code>p_up</code>, volatility and path scaling —
+          fit on validation only, with a temporal holdout. Test set touched once per variant.
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag">Statistics</span>
+        <h3>Uncertainty, not point claims</h3>
+        <p>
+          Bootstrap confidence intervals for MAE/RMSE deltas, Wilson intervals for direction, and
+          Brier-skill intervals. The v4 MAE delta CI includes zero: no significant gap.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= METHOD ================= -->
+  <section class="wrap">
+    <p class="kicker">Method</p>
+    <h2>Reproducible by construction</h2>
+    <p class="section-intro">
+      One chronological split, one evaluation protocol, four ablations. Nothing tuned on the test set.
+    </p>
+
+    <div class="pipeline">
+      <div class="step"><div class="n">01</div><div class="t">Ingest</div><div class="d">Dukascopy EWZ.US-USD · 1h + 1d · session bars</div></div>
+      <div class="step"><div class="n">02</div><div class="t">Audit</div><div class="d">Nulls, duplicates, OHLC validity, split boundaries</div></div>
+      <div class="step"><div class="n">03</div><div class="t">Fine-tune</div><div class="d">Tokenizer then predictor · 2× RTX 3090</div></div>
+      <div class="step"><div class="n">04</div><div class="t">Sample</div><div class="d">Raw paths, not averaged forecasts · 64 samples</div></div>
+      <div class="step"><div class="n">05</div><div class="t">Calibrate</div><div class="d">Validation-only isotonic + vol/path scaling</div></div>
+      <div class="step"><div class="n">06</div><div class="t">Evaluate</div><div class="d">MAE, direction, Brier, coverage, QLIKE, CIs</div></div>
+    </div>
+  </section>
+
+  <!-- ================= BOTH HORIZONS ================= -->
+  <section class="wrap">
+    <p class="kicker">Both horizons</p>
+    <h2>The result is not horizon-specific</h2>
+    <p class="section-intro">
+      A 24-bar window on session data is ~5 calendar days, not 24 hours. The shorter 7-bar horizon
+      (~1 trading day) gives the model its best shot — and the conclusion holds.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Horizon</th>
+            <th>Test windows</th>
+            <th>Random walk</th>
+            <th>Fine-tune <span class="muted">(variant)</span></th>
+            <th>Direction</th>
+            <th>Brier skill</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>24 bars <span class="muted">· ~5 days</span></td>
+            <td>71</td>
+            <td>0.0180</td>
+            <td>0.0194 <span class="muted">v4</span></td>
+            <td class="warn">45.1%</td>
+            <td class="warn">−0.03</td>
+          </tr>
+          <tr>
+            <td>7 bars <span class="muted">· ~1 day</span></td>
+            <td>244</td>
+            <td>0.0082</td>
+            <td>0.0096 <span class="muted">v3</span></td>
+            <td class="warn">51.2%</td>
+            <td class="warn">−0.03</td>
+          </tr>
+          <tr>
+            <td>Zero-shot <span class="muted">· 24 bars</span></td>
+            <td>71</td>
+            <td>0.0180</td>
+            <td>0.0237</td>
+            <td class="bad">46.5%</td>
+            <td class="bad">−0.79</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="chart-note" style="margin-top:14px">
+      For reference, v1 reached 0.0192 at 24 bars and 0.0093 at 7 bars. The spread between v1, v3 and v4
+      is within noise; all remain above the random-walk baseline.
+    </p>
+  </section>
+
+  <!-- ================= NEXT ================= -->
+  <section class="wrap">
+    <p class="kicker">Next</p>
+    <h2>Where this goes from here</h2>
+    <p class="section-intro">
+      The honest conclusion is not “train longer.” It is “change the target.”
+    </p>
+
+    <div class="next">
+      <div class="card">
+        <span class="tag">Pivot 01 · risk</span>
+        <h3>Distributional forecasting</h3>
+        <p>Calibrated quantiles, conformal bands, VaR/CVaR backtests and volatility vs GARCH — where a generative model can add value without a mean edge.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Pivot 02 · cross-section</span>
+        <h3>Ranking a universe</h3>
+        <p>30–50 liquid ETFs, long-short by model signal, net of costs — the evaluation Kronos was actually designed for.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Pivot 03 · features</span>
+        <h3>Model as an input</h3>
+        <p>Use Kronos paths or embeddings as features in a ridge/GBM ensemble, benchmarked against ARIMA and GARCH baselines.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <div class="foot">
+    <div>
+      <div class="who">Kronos × EWZ research</div>
+      <div class="stack">Python 3.12 · PyTorch 2.15 · 2× RTX 3090 · Dukascopy · Kronos (MIT)</div>
+    </div>
+    <div class="disclaimer">
+      Research case study, not investment advice. All metrics computed on a held-out chronological
+      test set; calibration fit on validation only. Kronos is MIT-licensed research code, not a
+      production trading system.
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
